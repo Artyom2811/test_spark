@@ -7,7 +7,7 @@ import org.apache.spark.sql.cassandra._
 import sparkSession.implicits._
 import org.apache.spark.sql.functions._
 
-class KassandraSevrice {
+class CassandraSevrice {
 
   val keyspace = "testkeyspace"
 

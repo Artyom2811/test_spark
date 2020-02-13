@@ -10,7 +10,7 @@ import JSONParsers.parseJson
 
 class KafkaService {
 
-  private val kassandraSevrice = new KassandraSevrice
+  private val cassandraSevrice = new CassandraSevrice
   private val numberOfPartitions = 3
 
   private val writer: ForeachWriter[(String, String, Int, Long)] = new ForeachWriter[(String, String, Int, Long)] {
@@ -67,7 +67,7 @@ class KafkaService {
 
 
   private def getJsonOffsets(topics: Array[String], numberOfPartitions: Int): String = {
-    val offsetsOfRating: Array[(String, Int, Long)] = kassandraSevrice.getOffsetByTopicFromCassandra(topics)
+    val offsetsOfRating: Array[(String, Int, Long)] = cassandraSevrice.getOffsetByTopicFromCassandra(topics)
     if (offsetsOfRating.nonEmpty) {
       val expectedOfPartitions = 0 until numberOfPartitions
 

@@ -16,7 +16,7 @@ object SimpleApp {
   val sparkSession: SparkSession = SparkSession.builder.config(conf).getOrCreate
 
   val keyspace = "testkeyspace"
-  val kassandraSevrice = new KassandraSevrice
+  val cassandraSevrice = new CassandraSevrice
   val nameTopicRating = "rating"
   val nameTopicMovies = "movies"
   val reportTable = "count_stars_by_day"
@@ -24,19 +24,19 @@ object SimpleApp {
   import sparkSession.implicits._
 
   def main(args: Array[String]) {
-    var offsets = kassandraSevrice.getOffsetByAllTopicsFromCassandra
+    var offsets = cassandraSevrice.getOffsetByAllTopicsFromCassandra
 
     while (true) {
       //Starts consumption from kafka and waits until the end
       val kafkaService = new KafkaService
       kafkaService.downloadFromRatingKafka(Array(nameTopicRating, nameTopicMovies))
 
-      if (!(offsets sameElements kassandraSevrice.getOffsetByAllTopicsFromCassandra)) {
+      if (!(offsets sameElements cassandraSevrice.getOffsetByAllTopicsFromCassandra)) {
         println("Calculating data")
         val result: Dataset[GenreRatingByDayEntry] = calcReportCountStarsByDay
 
-        kassandraSevrice.writeToCassandra(keyspace, reportTable, result)
-        offsets = kassandraSevrice.getOffsetByAllTopicsFromCassandra
+        cassandraSevrice.writeToCassandra(keyspace, reportTable, result)
+        offsets = cassandraSevrice.getOffsetByAllTopicsFromCassandra
       }
       println("Loop is over")
       Thread.sleep(10000)
@@ -44,8 +44,8 @@ object SimpleApp {
   }
 
   def calcReportCountStarsByDay: Dataset[GenreRatingByDayEntry] = {
-    val listOfMovies: Dataset[Movie] = kassandraSevrice.readFromCassandraMovies
-    val listOfRatings: Dataset[Rating] = kassandraSevrice.readFromCassandraRatings
+    val listOfMovies: Dataset[Movie] = cassandraSevrice.readFromCassandraMovies
+    val listOfRatings: Dataset[Rating] = cassandraSevrice.readFromCassandraRatings
 
     val countRowByGenreAndDateAndRating = listOfRatings
       .withColumn("date", to_date(col("timestamps") cast TimestampType))
