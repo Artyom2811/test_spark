@@ -2,17 +2,18 @@ import SimpleApp.{connector, keyspace, sparkSession}
 import models.{Movie, Rating}
 import org.apache.spark.sql
 import org.apache.spark.sql.ForeachWriter
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.streaming.Trigger
 import org.apache.spark.sql.types.{IntegerType, LongType, StringType}
-import org.apache.spark.sql.cassandra._
 import org.json4s.{Formats, NoTypeHints}
 import org.json4s.native.Serialization
 import JSONParsers.parseJson
 
 class KafkaService {
 
-  val writer: ForeachWriter[(String, String, Int, Long)] = new ForeachWriter[(String, String, Int, Long)] {
+  private val cassandraSevrice = new CassandraSevrice
+  private val numberOfPartitions = 3
+
+  private val writer: ForeachWriter[(String, String, Int, Long)] = new ForeachWriter[(String, String, Int, Long)] {
     override def open(partitionId: Long, version: Long) = true
 
     override def process(value: (String, String, Int, Long)): Unit = {
@@ -46,7 +47,7 @@ class KafkaService {
     .format("kafka")
     .option("kafka.bootstrap.servers", "localhost:9092")
     .option("subscribe", topic.mkString(","))
-    .option("startingOffsets", getJsonOffsets(topic, 3))
+    .option("startingOffsets", getJsonOffsets(topic, numberOfPartitions))
     .load
     .withColumn("topic", $"topic" cast StringType)
     .withColumn("value", $"value" cast StringType)
@@ -57,24 +58,16 @@ class KafkaService {
   def downloadFromRatingKafka(topic: Array[String]): Unit =
     downloadFromKafka(topic)
       .as[(String, String, Int, Long)]
-
       .writeStream
       .trigger(Trigger.Once)
       .foreach(writer)
       .start
       .awaitTermination
 
-  def getOffsetByTopicFromCassandra(topics: Array[String]): Array[(String, Int, Long)] = sparkSession
-    .read
-    .cassandraFormat("number_of_offset", keyspace)
-    .load
-    .filter(col("topic") isin (topics: _*))
-    .select("topic", "partition", "offset")
-    .as[(String, Int, Long)]
-    .collect
 
-  def getJsonOffsets(topics: Array[String], numberOfPartitions: Int): String = {
-    val offsetsOfRating: Array[(String, Int, Long)] = getOffsetByTopicFromCassandra(topics)
+
+  private def getJsonOffsets(topics: Array[String], numberOfPartitions: Int): String = {
+    val offsetsOfRating: Array[(String, Int, Long)] = cassandraSevrice.getOffsetByTopicFromCassandra(topics)
     if (offsetsOfRating.nonEmpty) {
       val expectedOfPartitions = 0 until numberOfPartitions
 
